@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reserva de Laboratorio</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: #f4f7f6; padding: 20px; display: flex; justify-content: center; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 420px; width: 100%; }
+        h2 { text-align: center; color: #2c3e50; margin-bottom: 5px; }
+        .subtitle { text-align: center; color: #7f8c8d; font-size: 14px; margin-bottom: 20px; }
+        label { font-weight: bold; color: #34495e; display: block; margin-top: 15px; margin-bottom: 5px; }
+        input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+        
+        .horarios-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
+        .slot {
+            padding: 12px; text-align: center; border: 2px solid #3498db; border-radius: 8px;
+            cursor: pointer; font-weight: bold; color: #3498db; transition: all 0.2s ease;
+        }
+        .slot:hover { background-color: #ebf5fb; }
+        .slot.selected { background-color: #3498db; color: white; }
+        .slot.ocupado { border-color: #e74c3c; color: #e74c3c; background-color: #fadbd8; cursor: not-allowed; text-decoration: line-through; }
+
+        .btn-reservar {
+            width: 100%; margin-top: 25px; padding: 12px; background-color: #25D366; color: white;
+            border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer;
+        }
+        .btn-reservar:hover { background-color: #1ebc57; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>🔬 Reserva de Laboratorio</h2>
+    <div class="subtitle">Selecciona fecha y horario disponible</div>
+    
+    <label for="nombre">Nombre Completo:</label>
+    <input type="text" id="nombre" placeholder="Ingresa tu nombre">
+
+    <label for="fecha">Fecha de Reserva:</label>
+    <input type="date" id="fecha" onchange="cargarHorarios()">
+
+    <label>Horarios Disponibles:</label>
+    <div id="gridHorarios" class="horarios-grid"></div>
+
+    <button class="btn-reservar" onclick="enviarReservaWhatsApp()">
+        Confirmar por WhatsApp
+    </button>
+</div>
+
+<script>
+    const MI_TELEFONO_WHATSAPP = "526121499313"; 
+
+    const listaHorarios = [
+        "07:00 AM - 08:30 AM",
+        "09:00 AM - 11:00 AM",
+        "11:00 AM - 12:30 PM",
+        "12:30 PM - 02:00 PM"
+    ];
+
+    let horarioSeleccionado = "";
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const inputFecha = document.getElementById("fecha");
+        const hoy = new Date().toISOString().split("T")[0];
+        inputFecha.min = hoy;
+        inputFecha.value = hoy;
+        cargarHorarios();
+    });
+
+    // Obtener las reservas almacenadas en localStorage
+    function obtenerReservas() {
+        const reservas = localStorage.getItem("reservasLaboratorio");
+        return reservas ? JSON.parse(reservas) : {};
+    }
+
+    function cargarHorarios() {
+        const grid = document.getElementById("gridHorarios");
+        const fecha = document.getElementById("fecha").value;
+        grid.innerHTML = "";
+        horarioSeleccionado = "";
+
+        const reservas = obtenerReservas();
+        const ocupadosDeHoy = reservas[fecha] || [];
+
+        listaHorarios.forEach((horario) => {
+            const slot = document.createElement("div");
+            slot.className = "slot";
+            slot.innerText = horario;
+
+            // Verificar si este horario ya fue reservado para la fecha seleccionada
+            if (ocupadosDeHoy.includes(horario)) {
+                slot.classList.add("ocupado");
+                slot.innerText += "\n(Ocupado)";
+            } else {
+                slot.onclick = () => seleccionarHorario(slot, horario);
+            }
+
+            grid.appendChild(slot);
+        });
+    }
+
+    function seleccionarHorario(elemento, horario) {
+        document.querySelectorAll(".slot").forEach(s => s.classList.remove("selected"));
+        elemento.classList.add("selected");
+        horarioSeleccionado = horario;
+    }
+
+    function enviarReservaWhatsApp() {
+        const nombre = document.getElementById("nombre").value.trim();
+        const fecha = document.getElementById("fecha").value;
+
+        if (!nombre || !fecha || !horarioSeleccionado) {
+            alert("Por favor completa tu nombre, fecha y selecciona un horario.");
+            return;
+        }
+
+        // Guardar la reserva en localStorage para bloquear el horario en esa fecha
+        const reservas = obtenerReservas();
+        if (!reservas[fecha]) {
+            reservas[fecha] = [];
+        }
+        
+        reservas[fecha].push(horarioSeleccionado);
+        localStorage.setItem("reservasLaboratorio", JSON.stringify(reservas));
+
+        const [year, month, day] = fecha.split("-");
+        const fechaFormateada = `${day}/${month}/${year}`;
+
+        const mensaje = `*Solicitud de Reserva de Laboratorio*\n\n` +
+                        ` *Solicitante:* ${nombre}\n` +
+                        ` *Fecha:* ${fechaFormateada}\n` +
+                        ` *Horario:* ${horarioSeleccionado}\n\n` +
+                        `Quedo a la espera de tu confirmación.`;
+
+        window.open(`https://wa.me/${MI_TELEFONO_WHATSAPP}?text=${encodeURIComponent(mensaje)}`, "_blank");
+        cargarHorarios();
+    }
+</script>
+
+</body>
+</html>
